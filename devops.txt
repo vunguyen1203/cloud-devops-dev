@@ -1,0 +1,633 @@
+devops: linux -> git -> ci/cd(gitlab ci/cd) -> docker  -> jenkins -> terraform -> monitoring/logging -> cloud(aws,azure,gc)
+ - >  k8s -> networking/secutiry
+
+linux
+Tối ưu hiệu suất và chi phí
+Bảo mật và ổn định
+Khả năng kiểm soát và linh hoạt
+Cộng đồng phát triển lớn
+Phát triển và cập nhật
+Tương thích đa nền tảng
+
+uname xem tên hđh
+uname -n, hostname xem hostname
+uname -a xem thông tin phiên bản
+hostname xem tên máy tính
+date xem ngày, giờ
+df -h xem dung lượng ổ cứng
+du -sh xem dung lượng file,thư mục
+free -m xem dung lượng ram
+cat /proc/cpuinfo | grep processor xem thông tin cpu
+man xem cách sử dụng các câu lệnh
+clear xóa màn hình
+ps -ef xem tiến trình
+top tương tự task manager trong windows
+pwd xem đường dẫn thư mục đang làm việc
+whoami cho biết đăng nhập với user nào
+ip a xem địa chỉ ip
+sudo -i, sudo su chuyển sang user admin
+su chuyển sang user khác
+cat xem nội dung trong file
+tail xem nội dung cuối file (-f xem nội dung thời gian thực, -n số dòng)
+head xem nội dung đầu file
+history xem các lệnh đã dùng
+echo in nội dung ra màn hình
+sudo chạy lệnh với quyền admin
+reboot khởi động lại hdh
+
+
+cd di chuyển sang tập tin khác
+cd .. lùi 1 cấp thư mục
+cd,cd ~ di chuyển sang thư mục home
+cd / di chuyển sang thư mục root
+cd - di chuyển sang thư mục đã ở trước đó
+
+ls xem thu muc
+ls -L chi hien ten thu muc
+ls -l hien thi cot filename, date, size
+ls -a xem thu muc an
+ls -R liet ke cac tep tin, thu muc ben trong
+ls -la hien thi thong tin thu muc an
+
+mkdir tạo thư mục
+mkdir -v tạo thư mục có thông báo
+mkdir -p tạo thư mục trong thư mục
+
+cp sao chép file
+cp -a sao chép thư mục
+cp -rf /* sao chép tất cả bên trong thư mục
+touch tạo file
+rmdir xóa thư mục rỗng
+rm -rf xóa thư mục không rỗng và file
+mv di chuyển thư mục file và đổi tên
+
+gzip nén file
+unzip, gzip -d giải nén file
+tar -cvf ten_file.tar đóng gói thư mục
+tar -cvzf ten_file.tar.gz nén theo chuẩn zip(nhanh hơn - nặng hơn)
+tar -cvjf ten_file.tar.bz2 nén theo chuẩn bz2(lâu hơn - nhẹ hơn)
+tar -xvf giải nén 
+tar -xvzf giải nén zip
+tar -xvjf giải nén bz2
+tar -tvf xem nội dung đóng gói và nén
+
+cat /etc/passwd xem user 
+(cau truc: ten_user:pass_ma_hoa:uid:gid:ten_day_du_user:/thu_muc_home_cua_user:/bin/bash_shell_user)
+cat /etc/group xem group (cau truc: ten_group:pass_ma_hoa:gid)
+useradd, adduser tạo user
+deluser xoa user
+groupadd -g gid ten_group tao group
+groupdel ten_group xoa group
+usermod -ag ten_group_chinh -aG ten_group_phu ten_user
+usermod -aG ten_group ten_user chinh sua group 
+passwd dat mat khau
+groups kiểm tra group của user
+
+-rw-r--r--.  1 root root  728644 Jan 31 20:53 log.tar.gz (co chu so huu la user root va nhom so huu la group root)
+d o dau la thu muc
+- o dau la file
+read: r
+write: w
+execute: x (thuc thi, quyen chay file)
+user: u
+group: g
+other: o
+chmod u=rwx,g=rw,o=r log.tar.gz them quyen
+chmod g+x log.tar.gz
+chmod g-x log.tar.gz go quyen
+cách khác
+read: 4
+write: 2
+execute: 1
+chmod 764 log.tar.bz2 (chmod u=rwx,g=rw,o=r cap bao nhieu quyen cong so lai voi nhau, khong cap de 0)
+chown vutest:db log.tar.bz2 thay doi chu so va nhom so huu (-R thay đổi cho các thư mục con trong thư mục cha)
+
+
+deloy front-end vuejs với nginx
+sudo -i
+apt install nginx -y
+curl -s https://deb.nodesource.com/setup_18.x | sudo bash 
+apt install nodejs -y
+adduser todolist 
+chown -R todolist:todolist ./project/todolist
+chmod -R 750 ./project/todolist #phân quyền
+cd ./project/todolist 
+su todolist 
+npm install 
+npm run build #build project ra thư mục dist (đối với vue và angular)
+usermod -aG todolist www-data #add user www-data của nginx vào groups todolist
+vi  /etc/nginx/conf.d/todolist.conf #thiết lập cổng và chỉ đến thư mục dist vừa build 
+server {
+        listen 8081;
+        root /home/test1/projects/todolist/dist/;
+        index index.html;
+        try_files $uri $uri/ /index.html;
+} #add đoạn này vào
+systemctl restart nginx #khởi động lại nginx 
+hoặc nginx -s reload
+
+
+deloy front-end react không cần web server
+sudo -i
+adduser vision #tên trùng với project
+chown -R vision:vision ./project/vision #thay đổi chủ sở hữu và nhóm sở hữu
+chmod -R 750 ./project/vision #phân quyền
+su vision #chuyển sang user để deloy
+cd ./project/vision 
+npm install
+vi /lib/systemd/system/vision.service #tạo 1 file và khai báo cấu hình
+[Service]
+Type=simple
+User=vision
+Restart=on-failure
+WorkingDirectory=/home/test1/projects/vision/
+ExecStart=npm run start -- --port=3000
+systemctl daemon-reload
+systemctl restart vision
+
+
+deloy backend-java spring-boot với mariadb
+sudo -i
+adduser shoeshop #tên trùng với project
+chown -R shoeshop:shoeshop ./project/shoeshop #thay đổi chủ sở hữu và nhóm sở hữu
+chmod -R 750 ./project/shoeshop #phân quyền
+apt install openjdk-17-jdk openjdk-17-jre -y
+apt install maven -y
+apt install mariadb-server -y
+vi /etc/mysql/mariadb.conf.d/50-server.cnf -> sửa bind-address = 0.0.0.0 để các server trong mạng có thể truy cập db
+systemctl restart mysql
+create database shoeshop;
+create user 'shoeshop'@'%' identified by 'shoeshop';
+grant all privileges on shoeshop.* to 'shoeshop'@'%';
+flush privileges;
+use shoeshop;
+source /home/test1/projects/shoeshop/shoe_shopdb.sql;
+vi ./src/main/resources/application.properties # sửa
+spring.datasource.url=jdbc:mysql://địa chỉ server db:3306/tên database
+spring.datasource.username=tên
+spring.datasource.password=mật khẩu
+su shoeshop
+mvn install -DskipTests=true #build dự án bỏ qua test
+nohup java -jar target/shoe-ShoppingCart-0.0.1-SNAPSHOT.jar -2>&1 & #chạy ngầm và lưu log của projects ở file nohup
+#dừng tiến trình
+ps -ef | grep shoeshop #tìm id của tiến trình
+kill -9 id của tiến trình
+
+
+git có công dụng: nhiều người phát triển, theo dõi thay đổi, kiểm soát truy cập, quản lý phiên bản, sao lưu phục hồi 
+git workflow quản lý dự án trên các môi trường có 3 môi trường chính: devlopment(phát triển code), staging (tester),
+production (người dùng cuối)
+
+cài gitlab server v14
+curl -s https://packages.gitlab.com/install/repositories/gitlab/gitlab-ee/script.deb.sh | sudo bash
+apt-get install gitlab-ee=14.4.1-ee.0
+vi /etc/hosts #add ip và domain 
+vi /etc/gitlab/gitlab.rb #sửa url domain
+gitlab-ctl reconfigure
+truy cập vào domain đăng nhập (userame: root - passowrd truy cập vào cat /etc/gitlab/initial_root_password để lấy)
+
+lệnh git
+git branch -a xem các branch
+git config cấu hình
+git clone kéo code từ server về local
+git status đang ở branch nào
+git checkout -b branch-name tạo branch và chuyển branch (bỏ -b)
+git checkout -b feature-branch-name branch-name tạo 1 branch từ branch hiện tại
+git add thêm file, folder vào git
+git commit -m "" comment
+git push -u origin name-branch đẩy code từ local lên git server
+git pull cập nhật code mới từ server
+git merge branch-name gộp branch (checkout trước sang branch muốn gộp) 
+git branch -d branch-name xóa branch hoặc git push origin --delete branch-name
+
+
+ci/cd
+ci continuous integration clone code -> build code -> tích hợp test,bảo mật
+cd continuous deployment triển khai hoàn toàn tự động
+   continuous delivery triền khai thủ công cần 1 vài bước xác nhận để triển khai dự án
+cd có 2 cách triển khai vì tự động hoàn toàn tối ưu về mặt hiệu suất và thủ cộng dễ kiểm soát dự án
+công cụ: gitlab ci/cd, jenkins 
+các bước triển khai:
+b1: cài đặt công cụ triển khai tự động lên server và kết nối đến server git (gitlab runner)
+b2: viết file cấu hình công việc
+
+apt-get update #cài gitlab-runner
+curl -L "https://packages.gitlab.com/install/repositories/runner/gitlab-runner/script.deb.sh" | bash
+apt-get install gitlab-runner
+apt-cache madison gitlab-runner
+gitlab-runner -version
+gitlab-runner register kết nối dự án với gitlab-runner
+nohup gitlab-runner run --working-directory /home/gitlab-runner/ --config /etc/gitlab-runner/config.toml --service gitlab-runner --user gitlab-runner 2>&1 &
+
+cho chép github-runner sử dụng sudo, gõ lệnh visudo 
+gitlab-runner ALL=(ALL) NOPASSWD: /bin/cp* #cho phép sử dụng lệnh cp
+gitlab-runner ALL=(ALL) NOPASSWD: /bin/chown* #cho phép thay đổi nhóm và chủ sở hữu
+gitlab-runner ALL=(ALL) NOPASSWD: /bin/su shoeshop* #cho phép truy cập vào user shoeshop
+
+ci/continuous deployment
+variables:
+    projectname: shoe-ShoppingCart
+    version: 0.0.1-SNAPSHOT
+    projectuser: shoeshop
+    projectpath: /datas/$projectuser
+
+stages:
+    - build
+    - deploy
+    - checklog
+
+build:
+    stage: build
+    variables:
+        GIT_STRATEGY: clone
+    script:
+        - mvn install -DskipTests=true
+    tags:
+        - lab-server
+    only:
+        - tags
+deploy:
+    stage: deploy
+    variables:
+        GIT_STRATEGY: none
+    script:
+        - sudo cp target/$projectname-$version.jar $projectpath
+        - sudo chown -R $projectuser. $projectpath
+        - sudo su $projectuser -c "kill -9 $(ps -ef| grep $projectname-$version.jar| grep -v grep| awk '{print $2}')" 
+        - sudo su $projectuser -c "cd $projectpath; nohup java -jar $projectname-$version.jar > nohup.out 2>&1 &"
+    tags:
+        - lab-server
+    only:
+        - tags
+checklog:
+    stage: checklog
+    variables:
+        GIT_STRATEGY: none
+    script:
+        - sudo su $projectuser -c "cd $projectpath; tail -n 1000 nohup.out"
+    tags:
+        - lab-server
+    only:
+        - tags
+nếu triển khai dưới dạng ci/cdelivery thì ở các stage thêm when: manual
+phân quyền chỉ user admin của dự án mới nhấn run
+ script:
+        - >
+            if [ "$GITLAB_USER_LOGIN" == 'vu' ]; then
+                sudo cp target/$projectname-$version.jar $projectpath
+                sudo chown -R $projectuser. $projectpath
+                sudo kill -9 $(ps -ef| grep $projectname-$version.jar| grep -v grep| awk '{print $2}')
+                sudo su $projectuser -c "cd $projectpath; nohup java -jar $projectname-$version.jar > nohup.out 2>&1 &"
+            else
+                echo "Permission denied"
+                exit 1
+            fi
+
+
+docker
+luồng hoạt động của container: source code -> docker file(viết file cấu hình) -> docker image(file sau khi đóng gói) ->
+docker container(chạy file đóng gói) 
+
+script cài docker
+#!/bin/bash
+
+sudo apt update
+sudo apt install -y apt-transport-https ca-certificates curl software-properties-common
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt update
+sudo apt install -y docker-ce
+sudo systemctl start docker
+sudo systemctl enable docker
+sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
+docker --version
+docker-compose --version
+
+
+docker pull tải docker images từ dockerhub về  
+docker images xem các images có trên máy
+docker run --name đặt tên container -it images (-it truy cập vào container vừa tạo,-d chạy nền, -p port_server:port_container)
+docker ps xem các container đang chạy (thêm -a xem các container trên server)
+docker start khởi động container
+docker exec -it tên container bash truy cập vào container
+docker stop dừng container
+docker rm -f buộc xóa container khi đang chạy
+docker rm -f $(docker ps -a) xóa tất cả container
+docker rmi -f xoá images
+docker build -t name:version . (-f chỉ định dockerfile muốn build) build dockefile
+docker logs xem log
+docker tag repo:tag domain/project/repo:tag đổi tên và coppy repo
+docker push domain/project/repo:tag đẩy docker images lên docker registry
+
+
+dockerfile
+FROM kéo images về
+WORKDIR chỉ định thư mục làm việc
+COPY . . copy file dự án vào vị trí của workdir
+RUN chạy các câu lệnh trên linux
+ENV khai báo biến
+EXPOSE định nghĩa port chạy của container
+CMD, ENTRYPOINT dùng để chạy ứng dụng
+USER chuyển sang user khác
+không sử dụng root chạy dự án
+chọn base image phù hợp (ưu tiên chọn alpine), chọn images ofice, viết dockerfile multi stage
+
+
+dockerfile javabackend
+## build stage ##
+FROM maven:3.5.3-jdk-8-alpine as build
+
+WORKDIR /app
+COPY . .
+RUN mvn install -DskipTests=true
+
+## run stage ##
+FROM alpine:3.19
+
+RUN adduser -D shoeshop
+RUN apk add openjdk8
+
+WORKDIR /run
+COPY --from=build /app/target/shoe-ShoppingCart-0.0.1-SNAPSHOT.jar /run/shoe-ShoppingCart-0.0.1-SNAPSHOT.jar
+
+RUN chown -R shoeshop:shoeshop /run
+
+USER shoeshop
+
+EXPOSE 8080
+
+ENTRYPOINT java -jar /run/shoe-ShoppingCart-0.0.1-SNAPSHOT.jar
+
+dockerfile forntend
+## build stage ##
+FROM node:18.18-alpine as build
+WORKDIR /app
+COPY . .
+RUN npm install
+RUN npm run build
+
+## run stage ##
+FROM nginx:alpine
+COPY --from=build /app/dist /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx","-g","daemon off;"]
+
+tạo 1 server docker registry ssl tự kí
+cài docker
+apt install openssl
+mkdir data certs
+openssl req -newkey rsa:4096 -nodes -sha256 -keyout certs/domain.key -subj "/CN=192.168.163.130" -addext "subjectAltName = DNS:192.168.163.130,IP:192.168.163.130" -x509 -days 365 -out certs/domain.crt
+vi docker-compose.yml
+add version: '3'
+services:
+  registry:
+    image: registry:2
+    restart: always
+    container_name: registry-server
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./data:/var/lib/registry
+      - ./certs:/certs
+    environment:
+      REGISTRY_HTTP_TLS_CERTIFICATE: ./certs/domain.crt
+      REGISTRY_HTTP_TLS_KEY: ./certs/domain.key
+docker-compose up -d
+mkdir -p /etc/docker/certs.d/192.168.163.130:5000
+cp certs/domain.crt /etc/docker/certs.d/192.168.163.130:5000/ca.crt
+systemctl restart docker
+docker login 192.168.163.130:5000
+
+trên server push 
+copy file domain.crt từ server registry sang
+mkdir -p /etc/docker/certs.d/192.168.163.130:5000
+cp certs/domain.crt /etc/docker/certs.d/192.168.163.130:5000/ca.crt
+systemctl restart docker
+docker login 192.168.163.130:5000
+docker tag todolist:v1 192.168.163.130:5000/a/todolist:v1
+docker push 192.168.163.130:5000/a/todolist:v1
+
+cài đặt harbor registry
+cài docker
+apt install certbot
+cd harbor
+curl -s https://api.github.com/repos/goharbor/harbor/releases/latest | grep browser_download_url | cut -d '"' -f 4 | grep '.tgz$' | wget -i -
+tar xvzf harbor-offline-installer*.tgz
+cd harbor/
+cp harbor.yml.tmpl harbor.yml
+export DOMAIN="registry.vucp2912n720.online"
+export EMAIL="vucp2912n@gmail.com"
+certbot certonly --standalone -d $DOMAIN --preferred-challenges http --agree-tos -m $EMAIL --keep-until-expiring
+./prepare
+./install.sh
+docker-compose ps
+
+docker volume dùng để kết nối (mount) dữ liệu từ container ra ngoài server khi xóa container thì dữ liệu vẫn còn 
+docker run -v /db/mariadb-1:/var/lib/mysql -e MYSQL_ROOT_PASSWORD=root -p 3307:3306 --name mariadb-1 -d mariadb:10.6 (-v chỉ định thư mục kết nối)
+docker run --rm -v `pwd`:/app --workdir="/app" maven:3.5.3-jdk-8-alpine mvn install -DskipTests=true
+docker compose dùng để viết file chạy docker run
+version: "3.8"
+services:
+  db1:
+     image: mariadb:10.6
+     volumes:
+      - /db/mariadb-1:/var/lib/mysql
+     environment:
+       MYSQL_ROOT_PASSWORD: root
+     ports:
+       - "3307:3006"
+     container_name: mariadb-1
+     restart: always
+   appbackend:
+           image: shoeshop:v3
+     ports:                                                                                                                                 - "8081:8080"                                                                                                                      container_name: shoeshop`
+     restart: always  
+
+
+gitlab ci/cd với docker
+add gitlabrunner vào group docker
+thêm dockerfile vào
+tạo các biến môi trường cho ci/cd
+sửa file pipeline
+variables:
+    DOCKER_IMAGE: ${REGISTRY_URL}/${REGISTRY_PROJECT}/${CI_PROJECT_NAME}:${CI_COMMIT_TAG}_${CI_COMMIT_SHORT_SHA}
+    DOCKER_CONTAINER: ${CI_PROJECT_NAME}
+stages:
+    - buildandpush
+    - deploy
+    - checklog
+
+buildandpush:
+    stage: buildandpush
+    variables:
+        GIT_STRATEGY: clone
+    before_script:
+        - docker login ${REGISTRY_URL} -u ${REGISTRY_USER} -p ${REGISTRY_PASSWORD}
+    script:
+        - docker build -t $DOCKER_IMAGE .
+        - docker push $DOCKER_IMAGE
+    tags:
+        - lab-server
+    only:
+        - tags
+
+deploy:
+    stage: deploy
+    variables:
+        GIT_STRATEGY: none
+    when: manual
+    before_script:
+        - docker login ${REGISTRY_URL} -u ${REGISTRY_USER} -p ${REGISTRY_PASSWORD}
+    script:
+        - docker pull $DOCKER_IMAGE
+        - docker rm -f $DOCKER_CONTAINER
+        - docker run --name $DOCKER_CONTAINER -dp 8081:8080 $DOCKER_IMAGE
+    tags:
+        - lab-server
+    only:
+        - tags
+checklog:
+    stage: checklog
+    variables:
+        GIT_STRATEGY: none
+    when: manual
+    script:
+        - docker logs $DOCKER_CONTAINER
+    tags:
+        - lab-server
+    only:
+        - tags
+
+jenkins 
+là công cụ tự động hóa mã nguồn mở
+cài đặt Jenkins
+#!/bin/bash
+
+apt install openjdk-17-jdk -y
+java --version
+wget -p -O - https://pkg.jenkins.io/debian/jenkins.io.key | apt-key add -
+sh -c 'echo deb http://pkg.jenkins.io/debian-stable binary/ > /etc/apt/sources.list.d/jenkins.list'
+apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 5BA31D57EF5975CA
+apt-get update
+openjdk-17-jre -y
+apt install jenkins -y
+systemctl start jenkins
+systemctl enable jenkins
+
+jenkins ci/cdeployment 
+apt install openjdk-11-jdk openjdk-11-jre
+adduser jenkins
+mkdir -p /var/lib/jenkins
+chown jenkins. /var/lib/jenkins
+su jenkins 
+tải file kết nối về
+chạy file .jar
+kết nối jenkins với gitlab
+jenkinsfile
+pipeline {
+    agent {
+        label 'lab-server'
+    }
+    environment {
+        appUser = "shoeshop"
+        appName = "shoe-ShoppingCart"
+        appVersion = "0.0.1-SNAPSHOT"
+        appType = "jar"
+        processName = "${appName}-${appVersion}.${appType}"
+        folderDeploy = "/datas/${appUser}"
+        buildScript = "mvn clean install -DskipTests=true"
+        copyScript = "sudo cp target/${processName} ${folderDeploy}"
+        permsScript = "sudo chown -R ${appUser}. ${folderDeploy}"
+        killScript = "sudo kill -9 \$(ps -ef| grep ${processName}| grep -v grep| awk '{print \$2}')"
+        runScript = 'sudo su ${appUser} -c "cd ${folderDeploy}; java -jar ${processName} > nohup.out 2>&1 &"'
+    }
+    stages {
+        stage('build') {
+            steps {
+                sh(script: """ ${buildScript} """, label: "build with maven")
+            }
+        }
+        stage('deploy') {
+            steps {
+                sh(script: """ ${copyScript} """, label: "copy the .jar file into deploy folder")
+                sh(script: """ ${permsScript} """, label: "set permission folder")
+                sh(script: """ ${killScript} """, label: "terminate the running process")
+                sh(script: """ ${runScript} """, label: "run the project")
+            }
+        }
+    }
+}
+
+jenkins ci/cdelivery
+pipeline {
+    agent {
+        label 'lab-server'
+    }
+    environment {
+        appUser = "shoeshop"
+        appName = "shoe-ShoppingCart"
+        appVersion = "0.0.1-SNAPSHOT"
+        appType = "jar"
+        processName = "${appName}-${appVersion}.${appType}"
+        folderDeploy = "/datas/${appUser}"
+        buildScript = "mvn clean install -DskipTests=true"
+        copyScript = "sudo cp target/${processName} ${folderDeploy}"
+        permsScript = "sudo chown -R ${appUser}. ${folderDeploy}"
+        killScript = "sudo kill -9 \$(ps -ef| grep ${processName}| grep -v grep| awk '{print \$2}')"
+        runScript = 'sudo su ${appUser} -c "cd ${folderDeploy}; java -jar ${processName} > nohup.out 2>&1 &"'
+    }
+    stages {
+        stage('build') {
+            steps {
+                sh(script: """ ${buildScript} """, label: "build with maven")
+            }
+        }
+        stage('deploy') {
+            steps {
+                script {
+                    try {
+                        timeout(time: 5, unit: 'MINUTES') {
+                            env.useChoice = input message: "Can it be deployed?",
+                                parameters: [choice(name: 'deploy', choices: 'no\nyes', description: 'Choose "yes" if you want to deploy!')]
+                        }
+                        if (env.useChoice == 'yes') {
+                            sh(script: """ ${copyScript} """, label: "copy the .jar file into deploy folder")
+                            sh(script: """ ${permsScript} """, label: "set permission folder")
+                            sh(script: """ ${killScript} """, label: "terminate the running process")
+                            sh(script: """ ${runScript} """, label: "run the project")
+                        }
+                        else {
+                            echo "Do not confirm the deployment!"
+                        }
+                    } catch (Exception err) {
+
+                    }
+                }
+
+            }
+        }
+    }
+}
+
+tạo 1 service jenkins agent
+[Unit]
+Description=Jenkins Agent Service
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/var/lib/jenkins
+ExecStart=/bin/bash -c 'java -jar agent.jar -url http://jenkins.example.com:8080/ -secret @secret-file -name "lab-server" -workDir "/var/lib/jenkins"'
+User=jenkins
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+
+monitoring
+tự động giám sát server: khi đầy ram, cpu,bộ nhớ, mạng chậm
+
+cài đặt zabbix
+https://www.zabbix.com/download?zabbix=6.0&os_distribution=ubuntu&os_version=20.04&components=server_frontend_agent&db=mysql&ws=apache
+
