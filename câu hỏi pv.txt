@@ -1,0 +1,6 @@
+ci cd 
+set up ci cd nhu the nao
+vm va container, docker, jenkins, monitoring
+networking
+
+những dự án đã làm, những tools đã xài, ...
