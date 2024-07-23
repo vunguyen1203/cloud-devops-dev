@@ -85,7 +85,7 @@ môi trường: dev, pre-production(staging), production
 cách triển khai dự án: service, container standalone(chạy các dự án độc lập = docker), container orchestration(điều phối = k8s)
 pp triển khai: build và deploy trên cùng server, build và deploy khác server
 3 thành phần pipeline: build, test, deploy
-pipeline workflow: commit -> sast -> sca
+pipeline workflow: commit -> sast -> sca -> build -> artifatct -> scan image -> deploy -> dast
 
 tại sao cần cicd (gitlabci,jenkins,argo):
 tự động hóa công việc
@@ -96,7 +96,97 @@ phản hồi nhanh
 phát hiện lỗi
 gitlab runner, jenkins agent là các robot thực hiện công việc tự đông dựa trên các file kịch bản(.gitlab-ci.yaml,jenkinsfile)
 
+cài gitlab-runner
+apt update -y
+curl -L "https://packages.gitlab.com/install/repositories/runner/gitlab-runner/script.deb.sh" | sudo bash
+apt install gitlab-runner
 
+chiến lược triển khai với gitlab runner (stragy runner)
+for an instance runner (tạo runner với tk admin để mọi người dùng chung)
+for a group runner (tạo runner trong group - các project trong group mới dùng được)
+for a project runner (tạo runner trong project - nên dùng khi chạy độc lập và các tác vụ chuyên biệt, tạo runner cho người khác sử dụng khi ko có quyền admin)
+
+quy trình 1
+stages:
+    - build
+    - deploy
+
+variables:
+    USER_PROJECT: "onlineshop"
+    PATH_PROJECT: "/home/${USER_PROJECT}/${CI_PROJECT_NAME}"
+ 
+build:
+    stage: build
+    variables:
+        GIT_STRAGY: clone
+    script:
+        - dotnet restore
+    tags:
+        - online-shop-runner-dev-shell
+    only:
+        - tags
+
+deploy:
+    stage: deploy
+    variables:
+        GIT_STRAGY: none
+    script:
+        - sudo cp -rf * ${PATH_PROJECT}
+        - sudo chown -R ${USER_PROJECT}. ${PATH_PROJECT}
+        - |
+          pid=$(sudo netstat -tlpun | grep :5214 | awk '{print $7}' | cut -d'/' -f1) || true
+          if [ -n "$pid" ]; then
+              sudo kill -9 ${pid}
+          fi
+        - sudo su ${USER_PROJECT} -c "cd ${PATH_PROJECT};nohup dotnet run > log.txt 2>&1 &"
+    tags:
+        - online-shop-runner-dev-shell
+    only:
+        - tags
+
+stages:
+    - build
+    - deploy
+
+variables:
+    USER_PROJECT: "onlineshop"
+    PATH_PROJECT: "/home/${USER_PROJECT}/${CI_PROJECT_NAME}"
+ 
+build:
+    stage: build
+    variables:
+        GIT_STRAGY: clone
+    script:
+        - npm install --force
+    tags:
+        - online-shop-runner-dev-shell
+    only:
+        - tags
+
+deploy:
+    stage: deploy
+    variables:
+        GIT_STRAGY: none
+    script:
+        - sudo cp -rf * ${PATH_PROJECT}
+        - sleep 5
+        - sudo chown -R ${USER_PROJECT}. ${PATH_PROJECT}
+        - sudo su ${USER_PROJECT} -c "cd ${PATH_PROJECT};pm2 delete ${CI_PROJECT_NAME}; pm2 start npm --name ${CI_PROJECT_NAME} -- run 'start'"
+    tags:
+        - online-shop-runner-dev-shell
+    only:
+        - tags
+
+
+quy trình 2 - triển khai build và deploy khác server
+commit -> git server -> server build -> server jfrog -> deploy server
+
+cài netcore6, node18, gitlab-runner lên server build
+cài docker và jfrog lên server artifactory
+
+mkdir -p /tools/jfrog/data
+chown -R 1030:1030 /tools/jfrog
+docker run --name artifactory-jfrog --restart unless-stopped -v /tools/jfrog/data/:/var/opt/jfrog/artifactory -d -p 8081:8081 -p 8082:8082 releases-docker.jfrog.io/jfrog/artifactory-oss:7.77.5
 
 
 
