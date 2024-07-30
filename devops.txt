@@ -304,7 +304,6 @@ sudo chmod +x /usr/local/bin/docker-compose
 docker --version
 docker-compose --version
 
-
 docker pull tải docker images từ dockerhub về  
 docker images xem các images có trên máy
 docker run --name đặt tên container -it images (-it truy cập vào container vừa tạo,-d chạy nền, -p port_server:port_container)

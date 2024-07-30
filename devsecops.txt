@@ -107,6 +107,7 @@ for a group runner (tạo runner trong group - các project trong group mới d�
 for a project runner (tạo runner trong project - nên dùng khi chạy độc lập và các tác vụ chuyên biệt, tạo runner cho người khác sử dụng khi ko có quyền admin)
 
 quy trình 1
+BE
 stages:
     - build
     - deploy
@@ -118,7 +119,7 @@ variables:
 build:
     stage: build
     variables:
-        GIT_STRAGY: clone
+        GIT_STRATEGY: clone
     script:
         - dotnet restore
     tags:
@@ -129,7 +130,7 @@ build:
 deploy:
     stage: deploy
     variables:
-        GIT_STRAGY: none
+        GIT_STRATEGY: none
     script:
         - sudo cp -rf * ${PATH_PROJECT}
         - sudo chown -R ${USER_PROJECT}. ${PATH_PROJECT}
@@ -143,7 +144,7 @@ deploy:
         - online-shop-runner-dev-shell
     only:
         - tags
-
+FE
 stages:
     - build
     - deploy
@@ -155,9 +156,9 @@ variables:
 build:
     stage: build
     variables:
-        GIT_STRAGY: clone
+        GIT_STRATEGY: clone
     script:
-        - npm install --force
+        - npm install 
     tags:
         - online-shop-runner-dev-shell
     only:
@@ -166,7 +167,7 @@ build:
 deploy:
     stage: deploy
     variables:
-        GIT_STRAGY: none
+        GIT_STRATEGY: none
     script:
         - sudo cp -rf * ${PATH_PROJECT}
         - sleep 5
@@ -188,5 +189,157 @@ mkdir -p /tools/jfrog/data
 chown -R 1030:1030 /tools/jfrog
 docker run --name artifactory-jfrog --restart unless-stopped -v /tools/jfrog/data/:/var/opt/jfrog/artifactory -d -p 8081:8081 -p 8082:8082 releases-docker.jfrog.io/jfrog/artifactory-oss:7.77.5
 
+đẩy repo lên jfrog
+curl -X PUT -u onlineshop:'123456aA@' -T onlineshop.zip "http://192.168.163.133:8082/artifactory/online-shop/"
+kéo repo từ jforg về
+curl -u onlineshop:"123456aA@" -O "http://192.168.163.133:8082/artifactory/online-shop/onlineshop.zip"
 
+BE
+stages:
+    - build
+    - push
+    - deploy
 
+variables:
+    USER_PROJECT: "onlineshop"
+    PATH_PROJECT: "/home/${USER_PROJECT}/${CI_PROJECT_NAME}"
+    ZIP_VERSION: "${CI_PROJECT_NAME}-$CI_COMMIT_SHORT_SHA-$CI_COMMIT_TAG.zip"
+ 
+build:
+    stage: build
+    variables:
+        GIT_STRATEGY: clone
+    script:
+        - dotnet restore
+        - zip -r $ZIP_VERSION .
+    tags:
+        - online-shop-runner-build-shell
+    only:
+        - tags
+
+push:
+    stage: push
+    variables:
+        GIT_STRATEGY: none
+    script:
+        - curl -X PUT -u $ARTIFACT_USER:$ARTIFACT_PASS -T $ZIP_VERSION "$ARTIFACT_URL"
+    tags:
+        - online-shop-runner-build-shell
+    only:
+        - tags
+
+deploy:
+    stage: deploy
+    variables:
+        GIT_STRATEGY: none
+    script:
+        - sudo su ${USER_PROJECT} -c "cd ${PATH_PROJECT};rm -rf *;curl -u $ARTIFACT_USER:$ARTIFACT_PASS -O "$ARTIFACT_URL/$ZIP_VERSION";unzip -o $ZIP_VERSION"
+        - |
+          pid=$(sudo netstat -tlpun | grep :5214 | awk '{print $7}' | cut -d'/' -f1) || true
+          if [ -n "$pid" ]; then
+              sudo kill -9 ${pid}
+          fi
+        - sudo su ${USER_PROJECT} -c "cd ${PATH_PROJECT};nohup dotnet run > log.txt 2>&1 &"
+    tags:
+        - online-shop-runner-dev-shell
+    only:
+        - tags
+
+FE
+cài nginx
+tạo file conf
+
+stages:
+    - build
+    - push
+    - deploy
+
+variables:
+    USER_PROJECT: "onlineshop"
+    PATH_PROJECT: "/home/${USER_PROJECT}/${CI_PROJECT_NAME}"
+    ZIP_VERSION: "${CI_PROJECT_NAME}-$CI_COMMIT_SHORT_SHA-$CI_COMMIT_TAG.zip"
+ 
+build:
+    stage: build
+    variables:
+        GIT_STRATEGY: clone
+    script:
+        - npm install 
+        - CI=false npm run build
+        - zip -r $ZIP_VERSION build onlineshop.conf
+    tags:
+        - online-shop-runner-build-shell
+    only:
+        - tags
+
+push:
+    stage: push
+    variables:
+        GIT_STRATEGY: none
+    script:
+        - curl -X PUT -u $ARTIFACT_USER:$ARTIFACT_PASS -T $ZIP_VERSION "$ARTIFACT_URL"
+    tags:
+        - online-shop-runner-build-shell
+    only:
+        - tags
+
+deploy:
+    stage: deploy
+    variables:
+        GIT_STRATEGY: none
+    script:
+        - sudo su ${USER_PROJECT} -c "cd ${PATH_PROJECT};rm -rf *;curl -u $ARTIFACT_USER:$ARTIFACT_PASS -O "$ARTIFACT_URL/$ZIP_VERSION";unzip -o $ZIP_VERSION"
+        - sudo usermod -aG $USER_PROJECT www-data
+        - sudo bash -c "cd ${PATH_PROJECT};rm -rf /etc/nginx/conf.d/${USER_PROJECT}.conf ; mv ${USER_PROJECT}.conf /etc/nginx/conf.d"
+        - sudo nginx -s reload
+    tags:
+        - online-shop-runner-dev-shell
+    only:
+        - tags
+
+quy trình 3
+cài docker
+git work flow: code -> dockerfile -> docker images -> docker run/docker compose
+
+dockerfile
+FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
+WORKDIR /app
+
+COPY . .
+RUN dotnet restore
+
+CMD ["dotnet","run","--urls","http://0.0.0.0:5214"]
+
+stages:
+    - build
+    - deploy
+
+variables:
+    USER_PROJECT: "onlineshop"
+    PATH_PROJECT: "/home/${USER_PROJECT}/${CI_PROJECT_NAME}"
+    IMAGE_VERSION: "${CI_PROJECT_NAME}:${CI_COMMIT_BRANCH}_${CI_COMMIT_TAG}_${CI_COMMIT_SHORT_SHA}"
+ 
+build:
+    stage: build
+    variables:
+        GIT_STRATEGY: clone
+    script:
+        - docker build -t ${IMAGE_VERSION} .
+    tags:
+        - online-shop-runner-dev-shell
+    only:
+        - tags
+
+deploy:
+    stage: deploy
+    variables:
+        GIT_STRATEGY: none
+    script:
+        - sudo su ${USER_PROJECT} -c "docker rm -f ${CI_PROJECT_NAME};docker run --name ${CI_PROJECT_NAME} -dp ${BE_PORT} ${IMAGE_VERSION}"
+    tags:
+        - online-shop-runner-dev-shell
+    only:
+        - tags
+
+usermod -aG docker gitlab-runner
+usermod -aG docker onlineshop
