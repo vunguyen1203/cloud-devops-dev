@@ -299,8 +299,8 @@ deploy:
 
 quy trình 3
 cài docker
-git work flow: code -> dockerfile -> docker images -> docker run/docker compose
-
+git work flow: code -> dockerfile -> docker images -> docker container
+                                                   
 dockerfile
 FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
 WORKDIR /app
@@ -343,3 +343,85 @@ deploy:
 
 usermod -aG docker gitlab-runner
 usermod -aG docker onlineshop
+
+
+quy trình 4
+git work flow: code -> dockerfile -> docker images -> docker hub(server registry) -> docker container
+
+cài docker, certbot lên server registry
+clone Portus về
+certbot certonly --standalone -d portus.vucp2912n720.online --preferred-challenges http --agree-tos -m vucp2912n@gmail.com --keep-until-expiring
+coppy 2 file fullchain và privkey và thư mục secert với tên mới là portus.crt và portus.key
+sửa file .env
+chạy docker compose
+docker tag đổi tên images
+login vào registry docker login portus.vucp2912n720.online -u onlineshop -p onlineshop
+push lên registry
+
+
+stages:
+    - build
+    - push
+    - deploy
+
+variables:
+    USER_PROJECT: "onlineshop"
+    IMAGE_VERSION: "${CI_REGISTRY}/${USER_PROJECT}/${CI_PROJECT_NAME}:${CI_COMMIT_REF_NAME}_${CI_COMMIT_SHORT_SHA}"
+
+
+ 
+build:
+    stage: build
+    variables:
+        GIT_STRATEGY: clone
+    script:
+        - docker build -t ${IMAGE_VERSION} .
+    tags:
+        - online-shop-runner-build-shell
+    only:
+        - tags
+
+push:
+    stage: push
+    variables:
+        GIT_STRATEGY: none
+    before_script:
+        - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    script:
+        - docker push ${IMAGE_VERSION}
+    after_script:
+        - docker logout $CI_REGISTRY
+    tags:
+        - online-shop-runner-build-shell
+    only:
+        - tags
+
+deploy:
+    stage: deploy
+    variables:
+        GIT_STRATEGY: none
+    before_script:
+        - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    script:
+        - docker pull ${IMAGE_VERSION}
+        - sudo su ${USER_PROJECT} -c "docker rm -f ${CI_PROJECT_NAME};docker run --name ${CI_PROJECT_NAME} -dp ${BE_PORT} ${IMAGE_VERSION}"
+    # đối với fe thay bằng FE_PORT
+    after_script:
+        - docker logout $CI_REGISTRY
+    tags:
+        - online-shop-runner-dev-shell
+    only:
+        - tags
+
+docker file fe
+FROM node:18-alpine as build
+WORKDIR /app
+COPY . .
+RUN npm install
+RUn npm run build
+
+FROM nginx:alpine
+COPY --from=build /app/build /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx","-g","daemon off;"]
+
